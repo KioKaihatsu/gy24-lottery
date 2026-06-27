@@ -63,8 +63,24 @@ function adminOk(req, url) {
 }
 
 // ---------- サーバ ----------
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+// 不正なリクエストやハンドラ内の例外でプロセスが落ちないようにする
+process.on('unhandledRejection', e => console.error('unhandledRejection:', e && e.message));
+process.on('uncaughtException', e => console.error('uncaughtException:', e && e.message));
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch(err => {
+    console.error('handler error:', err && err.message);
+    try { if (!res.headersSent) { res.writeHead(500); res.end('error'); } else res.end(); } catch (e) {}
+  });
+});
+
+async function handle(req, res) {
+  // ヘルスチェック用（ファイルI/Oを伴わない軽量応答）
+  if (req.url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
+
+  let url;
+  try { url = new URL(req.url, `http://${req.headers.host || 'localhost'}`); }
+  catch (e) { res.writeHead(400); return res.end('bad request'); }
   const p = url.pathname;
 
   // --- API ---
@@ -121,9 +137,9 @@ const server = http.createServer(async (req, res) => {
   if (file.startsWith(PUBLIC) && fs.existsSync(file) && fs.statSync(file).isFile()) return sendFile(res, file);
 
   res.writeHead(404); res.end('not found');
-});
+}
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`GY24 抽選アプリ起動: http://localhost:${PORT}`);
   console.log(`  参加者用(QRリンク先): http://localhost:${PORT}/`);
   console.log(`  主催者用(QR表示/抽選): http://localhost:${PORT}/host`);
