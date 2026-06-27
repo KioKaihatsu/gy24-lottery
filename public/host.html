@@ -77,7 +77,6 @@
 
 <div class="topbar">
   <button class="mini" id="csvBtn">⬇ CSV書き出し</button>
-  <button class="mini" id="resetBtn">🗑 全エントリーをリセット</button>
 </div>
 
 <div class="grid">
@@ -90,6 +89,7 @@
       <div class="hint">スマホのカメラでQRを読み取り → 名前と好物を入力 → 応募完了</div>
     </div>
     <div class="bigcount"><b id="count">0</b><span>現在のエントリー数</span></div>
+    <button id="newRoundBtn" class="btn" style="margin-top:16px;background:linear-gradient(90deg,#3ddc97,#3fa9ff)">🔄 新しい抽選会を開始（リセット＆QR再生成）</button>
   </div>
 
   <!-- Roulette -->
@@ -123,10 +123,11 @@ let entries = [];
 
 /* ---- QR生成（現在のURLからエントリーURLを自動生成） ---- */
 const entryUrl = location.origin + '/';
-(function makeQR(){
+function makeQR(){
   const qr = qrcode(0, 'M'); qr.addData(entryUrl); qr.make();
   $('#qrbox').innerHTML = qr.createImgTag(8, 0);
-})();
+}
+makeQR();
 $('#entryUrl').textContent = entryUrl;
 $('#entryUrl').href = entryUrl;
 
@@ -224,9 +225,12 @@ $('#csvBtn').onclick = () => {
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download='GY24_entries.csv';a.click();
 };
-$('#resetBtn').onclick = async () => {
-  if (!confirm('すべてのエントリーを削除します。よろしいですか？')) return;
+/* ---- 新しい抽選会を開始（エントリーをリセット＆QR再生成） ---- */
+$('#newRoundBtn').onclick = async () => {
+  if (!confirm('新しい抽選会を始めます。\n現在のエントリー（'+entries.length+'件）をすべてリセットしてよろしいですか？')) return;
   await fetch('/api/reset'+(adminKey?('?key='+encodeURIComponent(adminKey)):''),{method:'POST'});
+  makeQR();                       // QRを再生成
+  $('#winner').style.display='none';
 };
 
 /* ---- confetti ---- */
