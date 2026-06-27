@@ -121,24 +121,26 @@ const colors = ['#ff3ea5','#7b5bff','#ffd23f','#3ddc97','#ff8c42','#3fa9ff','#ff
 const adminKey = new URLSearchParams(location.search).get('key') || '';
 let entries = [];
 
-/* ---- QR生成（現在のURLからエントリーURLを自動生成） ---- */
-const entryUrl = location.origin + '/';
+/* ---- QR生成（公開URL＋その回のラウンドIDからエントリーURLを自動生成） ---- */
+const entryBase = location.origin + '/';
+let currentRound = '';
 function makeQR(){
-  const qr = qrcode(0, 'M'); qr.addData(entryUrl); qr.make();
+  const url = entryBase + (currentRound ? ('?r=' + encodeURIComponent(currentRound)) : '');
+  const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
   $('#qrbox').innerHTML = qr.createImgTag(8, 0);
+  $('#entryUrl').textContent = url;
+  $('#entryUrl').href = url;
 }
-makeQR();
-$('#entryUrl').textContent = entryUrl;
-$('#entryUrl').href = entryUrl;
+makeQR(); // ラウンド受信前の暫定表示。SSE init で正式なQRに差し替わる
 
 /* ---- リアルタイム受信（SSE） ---- */
 function connect(){
   const es = new EventSource('/api/stream');
   es.onmessage = ev => {
     const d = JSON.parse(ev.data);
-    if (d.type === 'init') { entries = d.entries; render(); }
+    if (d.type === 'init') { entries = d.entries; currentRound = d.round || ''; makeQR(); render(); }
     else if (d.type === 'add') { entries.push(d.entry); render(); flashCount(); }
-    else if (d.type === 'reset') { entries = []; render(); $('#winner').style.display='none'; }
+    else if (d.type === 'reset') { entries = []; currentRound = d.round || currentRound; makeQR(); render(); $('#winner').style.display='none'; }
     else if (d.type === 'draw') { /* 他画面用。自画面で実行済みなら無視 */
       const e = entries.find(x => x.id === d.winner.id); if (e) e.won = true; render();
     }
@@ -228,8 +230,9 @@ $('#csvBtn').onclick = () => {
 /* ---- 新しい抽選会を開始（エントリーをリセット＆QR再生成） ---- */
 $('#newRoundBtn').onclick = async () => {
   if (!confirm('新しい抽選会を始めます。\n現在のエントリー（'+entries.length+'件）をすべてリセットしてよろしいですか？')) return;
-  await fetch('/api/reset'+(adminKey?('?key='+encodeURIComponent(adminKey)):''),{method:'POST'});
-  makeQR();                       // QRを再生成
+  const d = await (await fetch('/api/reset'+(adminKey?('?key='+encodeURIComponent(adminKey)):''),{method:'POST'})).json();
+  if (d && d.round) currentRound = d.round; // 新しいラウンド
+  makeQR();                                 // 新しいQRを生成
   $('#winner').style.display='none';
 };
 

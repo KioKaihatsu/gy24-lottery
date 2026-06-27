@@ -62,9 +62,11 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const KEY = 'gy24_entered';
+// 抽選会ごとの固有ID（QRのURLに付く ?r=）。回が変われば別キーになり、前回参加者も再応募できる
+const round = new URLSearchParams(location.search).get('r') || '';
+const KEY = 'gy24_entered_' + (round || 'none');
 
-// すでに応募済みなら完了画面を表示（端末ごとの重複応募を軽く抑制）
+// この回ですでに応募済みなら完了画面を表示（同一端末の重複応募を抑制）
 const prev = localStorage.getItem(KEY);
 if (prev) showDone(prev);
 
@@ -80,9 +82,14 @@ async function submit() {
   try {
     const r = await fetch('/api/entry', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, fav })
+      body: JSON.stringify({ name, fav, round })
     });
     const d = await r.json();
+    if (r.status === 409 || (d && d.error === 'round_closed')) {
+      $('#err').textContent = 'この回の受付は終了しました。会場の最新のQRコードを読み取ってください。';
+      $('#submit').disabled = false; $('#submit').textContent = 'この内容で応募する';
+      return;
+    }
     if (!d.ok) throw new Error(d.error || 'failed');
     localStorage.setItem(KEY, name);
     showDone(name);

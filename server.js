@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3200;
 const ADMIN_KEY = process.env.ADMIN_KEY || ''; // 設定すると /host の抽選・リセットに鍵が必要
 const PUBLIC = path.join(__dirname, 'public');
 const DATA_FILE = path.join(__dirname, 'data', 'entries.json');
+const ROUND_FILE = path.join(__dirname, 'data', 'round.json');
 
 // ---------- データ ----------
 let entries = load();
@@ -25,6 +26,18 @@ function save() {
 }
 function uid() { return 'e' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
 
+// ---------- ラウンド（抽選会ごとの固有ID。QRのURLに付与して回ごとに新しいQRにする） ----------
+let round = loadRound() || genRound();
+saveRound();
+function genRound() { return 'r' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+function loadRound() { try { return JSON.parse(fs.readFileSync(ROUND_FILE, 'utf8')).round; } catch (e) { return null; } }
+function saveRound() {
+  try {
+    fs.mkdirSync(path.dirname(ROUND_FILE), { recursive: true });
+    fs.writeFileSync(ROUND_FILE, JSON.stringify({ round }));
+  } catch (e) { console.error('saveRound failed', e); }
+}
+
 // ---------- SSE（リアルタイム配信） ----------
 const clients = new Set();
 function broadcast(type, payload) {
@@ -32,7 +45,7 @@ function broadcast(type, payload) {
   for (const res of clients) { try { res.write(msg); } catch (e) {} }
 }
 function publicState() {
-  return { count: entries.length, won: entries.filter(e => e.won).length };
+  return { count: entries.length, won: entries.filter(e => e.won).length, round };
 }
 
 // ---------- ヘルパ ----------
@@ -104,7 +117,9 @@ async function handle(req, res) {
     const name = String(b.name || '').trim().slice(0, 40);
     const fav = String(b.fav || '').trim().slice(0, 60);
     if (!name) return json(res, 400, { ok: false, error: 'name required' });
-    const e = { id: uid(), name, fav, won: false, ts: Date.now() };
+    // 古いQR（前回のラウンド）からの応募は受け付けない
+    if (b.round && b.round !== round) return json(res, 409, { ok: false, error: 'round_closed' });
+    const e = { id: uid(), name, fav, round, won: false, ts: Date.now() };
     entries.push(e); save();
     broadcast('add', { entry: e, ...publicState() });
     return json(res, 200, { ok: true, count: entries.length });
@@ -123,9 +138,11 @@ async function handle(req, res) {
 
   if (p === '/api/reset' && req.method === 'POST') {
     if (!adminOk(req, url)) return json(res, 403, { ok: false, error: 'forbidden' });
-    entries = []; save();
+    entries = [];                  // エントリーをリセット
+    round = genRound(); saveRound(); // 新しいラウンド = 新しいQR（前回のQRは無効に）
+    save();
     broadcast('reset', { ...publicState() });
-    return json(res, 200, { ok: true });
+    return json(res, 200, { ok: true, round });
   }
 
   // --- ページ / 静的ファイル ---
