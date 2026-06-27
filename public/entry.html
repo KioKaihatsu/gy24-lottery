@@ -55,7 +55,6 @@
       <div class="check">🎉</div>
       <h2>応募完了！</h2>
       <p><span class="nm" id="doneName"></span> さん<br>エントリーありがとうございます。<br>抽選結果をお楽しみに！</p>
-      <button id="again" class="btn" style="background:var(--card2);box-shadow:none">別の人を応募する</button>
     </div>
   </div>
   <div class="foot">GY24 会場限定エントリー</div>
@@ -98,14 +97,6 @@ function showDone(name) {
   $('#doneName').textContent = name;
   $('#done').style.display = 'block';
 }
-
-$('#again').onclick = () => {
-  localStorage.removeItem(KEY);
-  $('#name').value = ''; $('#fav').value = '';
-  $('#done').style.display = 'none'; $('#form').style.display = 'block';
-  $('#submit').disabled = false; $('#submit').textContent = 'この内容で応募する';
-  $('#name').focus();
-};
 </script>
 </body>
 </html>
