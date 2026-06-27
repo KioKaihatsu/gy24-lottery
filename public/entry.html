@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GY24 エントリー</title>
+<style>
+  :root{--bg:#0e0b1a;--bg2:#171231;--card:#1e1840;--card2:#272055;--accent:#ff3ea5;--accent2:#7b5bff;
+    --gold:#ffd23f;--text:#f4f1ff;--muted:#9b93c4;--ok:#3ddc97;--line:rgba(255,255,255,.08)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    background:radial-gradient(1000px 500px at 50% -10%,#2a1d5e,#0e0b1a 55%);color:var(--text);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+  .wrap{width:100%;max-width:420px}
+  h1{margin:0 0 4px;font-size:26px;text-align:center;font-weight:800;
+    background:linear-gradient(90deg,var(--gold),var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px;font-weight:600}
+  input{width:100%;padding:15px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--bg2);color:var(--text);font-size:16px;outline:none}
+  input:focus{border-color:var(--accent2)}
+  .btn{appearance:none;border:none;border-radius:14px;padding:16px;font-size:17px;font-weight:800;
+    cursor:pointer;width:100%;color:#fff;margin-top:22px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));box-shadow:0 8px 22px rgba(123,91,255,.4)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.6}
+  .done{text-align:center;display:none}
+  .done .check{font-size:64px;animation:pop .4s ease}
+  @keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+  .done h2{margin:10px 0 4px;font-size:24px;color:var(--ok)}
+  .done p{color:var(--muted);font-size:14px;line-height:1.7}
+  .done .nm{color:var(--gold);font-weight:800;font-size:18px}
+  .err{color:#ff5470;font-size:13px;text-align:center;margin-top:12px;min-height:18px}
+  .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GY24 抽選エントリー</h1>
+  <div class="sub">お名前と好物を入力して応募してください🎁</div>
+
+  <div class="card">
+    <div id="form">
+      <label>お名前 <span style="color:var(--accent)">*</span></label>
+      <input id="name" type="text" placeholder="例）山田 太郎" autocomplete="off" maxlength="40">
+      <label>好物</label>
+      <input id="fav" type="text" placeholder="例）ラーメン" autocomplete="off" maxlength="60">
+      <button id="submit" class="btn">この内容で応募する</button>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="done" id="done">
+      <div class="check">🎉</div>
+      <h2>応募完了！</h2>
+      <p><span class="nm" id="doneName"></span> さん<br>エントリーありがとうございます。<br>抽選結果をお楽しみに！</p>
+      <button id="again" class="btn" style="background:var(--card2);box-shadow:none">別の人を応募する</button>
+    </div>
+  </div>
+  <div class="foot">GY24 会場限定エントリー</div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const KEY = 'gy24_entered';
+
+// すでに応募済みなら完了画面を表示（端末ごとの重複応募を軽く抑制）
+const prev = localStorage.getItem(KEY);
+if (prev) showDone(prev);
+
+$('#submit').onclick = submit;
+$('#fav').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+async function submit() {
+  const name = $('#name').value.trim();
+  const fav = $('#fav').value.trim();
+  $('#err').textContent = '';
+  if (!name) { $('#err').textContent = 'お名前を入力してください'; return; }
+  $('#submit').disabled = true; $('#submit').textContent = '送信中…';
+  try {
+    const r = await fetch('/api/entry', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, fav })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'failed');
+    localStorage.setItem(KEY, name);
+    showDone(name);
+  } catch (e) {
+    $('#err').textContent = '送信に失敗しました。通信環境を確認して再度お試しください。';
+    $('#submit').disabled = false; $('#submit').textContent = 'この内容で応募する';
+  }
+}
+
+function showDone(name) {
+  $('#form').style.display = 'none';
+  $('#doneName').textContent = name;
+  $('#done').style.display = 'block';
+}
+
+$('#again').onclick = () => {
+  localStorage.removeItem(KEY);
+  $('#name').value = ''; $('#fav').value = '';
+  $('#done').style.display = 'none'; $('#form').style.display = 'block';
+  $('#submit').disabled = false; $('#submit').textContent = 'この内容で応募する';
+  $('#name').focus();
+};
+</script>
+</body>
+</html>

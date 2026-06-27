@@ -1,0 +1,12 @@
+{
+  "name": "gy24-lottery",
+  "version": "1.0.0",
+  "description": "GY24 会場QRエントリー＆ルーレット抽選アプリ（依存パッケージなし）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

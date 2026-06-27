@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GY24 主催者画面｜QR表示・抽選</title>
+<script src="/qrcode.js"></script>
+<style>
+  :root{--bg:#0e0b1a;--bg2:#171231;--card:#1e1840;--card2:#272055;--accent:#ff3ea5;--accent2:#7b5bff;
+    --gold:#ffd23f;--text:#f4f1ff;--muted:#9b93c4;--ok:#3ddc97;--danger:#ff5470;--line:rgba(255,255,255,.08)}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    background:radial-gradient(1400px 700px at 50% -10%,#2a1d5e,#0e0b1a 55%);color:var(--text);min-height:100vh}
+  header{text-align:center;padding:20px 14px 6px}
+  header h1{margin:0;font-size:26px;font-weight:800;
+    background:linear-gradient(90deg,var(--gold),var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  .grid{max-width:1100px;margin:10px auto;padding:0 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px}
+  .card h2{margin:0 0 14px;font-size:17px;display:flex;align-items:center;gap:8px}
+
+  /* QR */
+  .qrbox{background:#fff;border-radius:16px;padding:18px;display:flex;justify-content:center}
+  .qrbox img,.qrbox canvas,.qrbox table{width:100%!important;height:auto!important;max-width:340px;image-rendering:pixelated}
+  .urlline{margin-top:14px;text-align:center}
+  .urlline a{color:var(--accent);font-size:15px;word-break:break-all;text-decoration:none;font-weight:700}
+  .urlline .hint{color:var(--muted);font-size:12px;margin-top:6px}
+  .bigcount{text-align:center;margin-top:8px}
+  .bigcount b{font-size:54px;color:var(--gold);line-height:1;display:block}
+  .bigcount span{color:var(--muted);font-size:13px}
+
+  /* roulette */
+  #reel{height:120px;overflow:hidden;border-radius:16px;border:2px solid var(--accent2);
+    background:linear-gradient(var(--card2),#1a1540);position:relative;margin:6px 0 14px}
+  #reel .pointer{position:absolute;top:50%;left:0;right:0;height:60px;transform:translateY(-50%);
+    border-top:2px dashed rgba(255,210,63,.6);border-bottom:2px dashed rgba(255,210,63,.6);pointer-events:none}
+  #reelInner{position:absolute;left:0;right:0;will-change:transform}
+  #reelInner .item{height:60px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .btn{appearance:none;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:800;
+    cursor:pointer;width:100%;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    box-shadow:0 8px 22px rgba(123,91,255,.4)}
+  .btn:active{transform:scale(.99)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.gold{background:linear-gradient(90deg,#ffb02e,var(--gold));color:#3a2b00;box-shadow:0 8px 26px rgba(255,210,63,.45)}
+  .btn.ghost{background:none;border:1px solid var(--line);box-shadow:none;color:var(--muted);font-weight:600}
+  .opt{margin:12px 0 0;color:var(--muted);font-size:14px}
+  .row{display:flex;gap:10px;margin-top:12px}
+  #winner{text-align:center;padding:26px 18px;border-radius:18px;display:none;margin-top:16px;
+    background:radial-gradient(circle at 50% 0%,rgba(255,210,63,.2),transparent),var(--card2);
+    border:1px solid rgba(255,210,63,.5)}
+  #winner .lbl{color:var(--gold);font-size:14px;letter-spacing:.4em;font-weight:800}
+  #winner .name{font-size:46px;font-weight:900;margin:10px 0;
+    background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  #winner .fav{color:var(--muted);font-size:16px}
+  #winner .fav b{color:var(--text)}
+
+  .list{max-height:280px;overflow:auto;margin-top:6px}
+  .entry{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)}
+  .entry .av{width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff}
+  .entry .nm{font-weight:700}.entry .fv{color:var(--muted);font-size:12px}
+  .entry .won{margin-left:auto;color:var(--gold);font-size:12px;font-weight:700}
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:14px}
+  .topbar{max-width:1100px;margin:0 auto;padding:6px 18px;display:flex;justify-content:flex-end;gap:10px}
+  .mini{font-size:12px;padding:7px 12px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:70;display:none}
+  .live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);margin-right:6px;animation:bl 1.4s infinite}
+  @keyframes bl{50%{opacity:.3}}
+</style>
+</head>
+<body>
+<header>
+  <h1>GY24 抽選 — 主催者画面</h1>
+  <p><span class="live"></span>会場のスクリーンに表示してください</p>
+</header>
+
+<div class="topbar">
+  <button class="mini" id="csvBtn">⬇ CSV書き出し</button>
+  <button class="mini" id="resetBtn">🗑 全エントリーをリセット</button>
+</div>
+
+<div class="grid">
+  <!-- QR -->
+  <div class="card">
+    <h2>📱 参加者はこのQRを読み取って応募</h2>
+    <div class="qrbox" id="qrbox"></div>
+    <div class="urlline">
+      <a id="entryUrl" href="#" target="_blank"></a>
+      <div class="hint">スマホのカメラでQRを読み取り → 名前と好物を入力 → 応募完了</div>
+    </div>
+    <div class="bigcount"><b id="count">0</b><span>現在のエントリー数</span></div>
+  </div>
+
+  <!-- Roulette -->
+  <div class="card">
+    <h2>🎰 ルーレット抽選（1名）</h2>
+    <div id="reel"><div id="reelInner"></div><div class="pointer"></div></div>
+    <button id="drawBtn" class="btn gold">🎰 抽選スタート！</button>
+    <label class="opt"><input type="checkbox" id="excludeWon" checked> 当選済みの人を除外する</label>
+    <div id="winner">
+      <div class="lbl">★ 当 選 ★</div>
+      <div class="name" id="winName">—</div>
+      <div class="fav" id="winFav"></div>
+      <button id="closeWin" class="btn ghost" style="margin-top:16px;max-width:200px;margin-left:auto;margin-right:auto">閉じる</button>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="card" style="grid-column:1/-1">
+    <h2>📋 エントリー一覧 <span id="listCount" style="color:var(--muted);font-weight:600;font-size:14px"></span></h2>
+    <div class="list" id="list"><div class="empty">読み込み中…</div></div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+const $ = s => document.querySelector(s);
+const colors = ['#ff3ea5','#7b5bff','#ffd23f','#3ddc97','#ff8c42','#3fa9ff','#ff5470','#a05bff'];
+const adminKey = new URLSearchParams(location.search).get('key') || '';
+let entries = [];
+
+/* ---- QR生成（現在のURLからエントリーURLを自動生成） ---- */
+const entryUrl = location.origin + '/';
+(function makeQR(){
+  const qr = qrcode(0, 'M'); qr.addData(entryUrl); qr.make();
+  $('#qrbox').innerHTML = qr.createImgTag(8, 0);
+})();
+$('#entryUrl').textContent = entryUrl;
+$('#entryUrl').href = entryUrl;
+
+/* ---- リアルタイム受信（SSE） ---- */
+function connect(){
+  const es = new EventSource('/api/stream');
+  es.onmessage = ev => {
+    const d = JSON.parse(ev.data);
+    if (d.type === 'init') { entries = d.entries; render(); }
+    else if (d.type === 'add') { entries.push(d.entry); render(); flashCount(); }
+    else if (d.type === 'reset') { entries = []; render(); $('#winner').style.display='none'; }
+    else if (d.type === 'draw') { /* 他画面用。自画面で実行済みなら無視 */
+      const e = entries.find(x => x.id === d.winner.id); if (e) e.won = true; render();
+    }
+  };
+  es.onerror = () => { /* EventSourceは自動再接続 */ };
+}
+connect();
+
+function render(){
+  $('#count').textContent = entries.length;
+  $('#listCount').textContent = entries.length ? `（${entries.length}名 / 当選 ${entries.filter(e=>e.won).length}名）` : '';
+  const list = $('#list');
+  if (!entries.length) { list.innerHTML = '<div class="empty">まだ応募がありません。QRを読み取ってもらいましょう！</div>'; return; }
+  list.innerHTML = entries.slice().reverse().map(e => {
+    const c = colors[Math.abs(hash(e.name)) % colors.length];
+    return `<div class="entry"><div class="av" style="background:${c}">${esc(e.name[0]||'?')}</div>
+      <div><div class="nm">${esc(e.name)}</div><div class="fv">好物: ${esc(e.fav||'—')}</div></div>
+      ${e.won?'<div class="won">★当選</div>':''}</div>`;
+  }).join('');
+}
+function flashCount(){ const c=$('#count'); c.style.transition='none'; c.style.transform='scale(1.4)'; c.style.color='#fff';
+  setTimeout(()=>{c.style.transition='.4s';c.style.transform='scale(1)';c.style.color='';},20); }
+function hash(s){let h=0;for(let i=0;i<s.length;i++)h=(h<<5)-h+s.charCodeAt(i);return h;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ---- 抽選 ---- */
+let drawing = false;
+const reelInner = $('#reelInner'); const ITEM_H = 60;
+$('#drawBtn').onclick = draw;
+$('#closeWin').onclick = () => $('#winner').style.display='none';
+
+async function draw(){
+  if (drawing) return;
+  const exclude = $('#excludeWon').checked;
+  const pool = exclude ? entries.filter(e=>!e.won) : entries;
+  if (!pool.length) { alert('抽選対象がいません'); return; }
+  drawing = true; $('#drawBtn').disabled = true; $('#winner').style.display='none';
+
+  let winner;
+  try {
+    const r = await fetch('/api/draw' + (adminKey?('?key='+encodeURIComponent(adminKey)):''), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ excludeWon: exclude })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error||'failed');
+    winner = d.winner;
+  } catch(e){ alert('抽選に失敗しました'); drawing=false; $('#drawBtn').disabled=false; return; }
+
+  // アニメーション用の名前ストリップを作成（最後に当選者を配置）
+  const names = pool.map(e=>e.name);
+  const strip = []; const N = 40;
+  for (let i=0;i<N;i++) strip.push(names[Math.floor(Math.random()*names.length)]);
+  strip.push(winner.name);
+  for (let i=0;i<3;i++) strip.push(names[Math.floor(Math.random()*names.length)]);
+  reelInner.innerHTML = strip.map(n=>`<div class="item">${esc(n)}</div>`).join('');
+  reelInner.style.transition='none'; reelInner.style.transform='translateY(0)';
+  const target = -(N*ITEM_H) + (120-ITEM_H)/2;
+  void reelInner.offsetHeight;
+  const dur = 4200;
+  reelInner.style.transition = `transform ${dur}ms cubic-bezier(.12,.7,.12,1)`;
+  reelInner.style.transform = `translateY(${target}px)`;
+
+  const tickT = setInterval(()=>tick(1200,.04,.03), 120);
+  setTimeout(()=>{
+    clearInterval(tickT);
+    $('#winName').textContent = winner.name;
+    $('#winFav').innerHTML = winner.fav ? ('好物は <b>'+esc(winner.fav)+'</b>') : '';
+    $('#winner').style.display='block';
+    tick(880,.18,.18); confetti();
+    drawing=false; $('#drawBtn').disabled=false;
+  }, dur+150);
+}
+function tick(freq,gain,dur){ try{const a=new(window.AudioContext||window.webkitAudioContext)();
+  const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);
+  o.frequency.value=freq;g.gain.value=gain;o.start();o.stop(a.currentTime+dur);}catch(e){} }
+
+/* ---- CSV / リセット ---- */
+$('#csvBtn').onclick = () => {
+  if (!entries.length) return alert('データがありません');
+  const rows=[['名前','好物','当選','登録時刻']];
+  entries.forEach(e=>rows.push([e.name,e.fav,e.won?'当選':'',new Date(e.ts).toLocaleString('ja-JP')]));
+  const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='GY24_entries.csv';a.click();
+};
+$('#resetBtn').onclick = async () => {
+  if (!confirm('すべてのエントリーを削除します。よろしいですか？')) return;
+  await fetch('/api/reset'+(adminKey?('?key='+encodeURIComponent(adminKey)):''),{method:'POST'});
+};
+
+/* ---- confetti ---- */
+const cf=$('#confetti');const cfx=cf.getContext('2d');let cfp=[];
+function confetti(){
+  cf.style.display='block';cf.width=innerWidth;cf.height=innerHeight;cfp=[];
+  for(let i=0;i<200;i++)cfp.push({x:Math.random()*cf.width,y:-20-Math.random()*cf.height,r:4+Math.random()*7,
+    c:colors[i%colors.length],vy:2+Math.random()*5,vx:-2+Math.random()*4,rot:Math.random()*6,vr:-.2+Math.random()*.4});
+  let f=0;(function a(){cfx.clearRect(0,0,cf.width,cf.height);
+    cfp.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;cfx.save();cfx.translate(p.x,p.y);cfx.rotate(p.rot);
+      cfx.fillStyle=p.c;cfx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);cfx.restore();});
+    if(++f<240)requestAnimationFrame(a);else cf.style.display='none';})();
+}
+window.addEventListener('resize',()=>{if(cf.style.display==='block'){cf.width=innerWidth;cf.height=innerHeight;}});
+</script>
+</body>
+</html>

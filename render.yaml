@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: gy24-lottery
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # 抽選/リセットを保護したい場合は ADMIN_KEY を Render の管理画面で設定
+      # - key: ADMIN_KEY
+      #   sync: false
